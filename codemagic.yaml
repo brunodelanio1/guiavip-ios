@@ -1,0 +1,29 @@
+workflows:
+  ios-app-store:
+    name: Guia VIP - App Store
+    max_build_duration: 60
+    environment:
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: br.com.fabricadeaplicativos.app2203439
+      app_store_connect:
+        auth: integration
+    scripts:
+      - name: Instalar dependências CocoaPods
+        script: |
+          cd "Guia Vip/src"
+          pod install --repo-update
+      - name: Build IPA para App Store
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
+            --scheme "Guia Vip"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: true
