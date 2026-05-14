@@ -5,20 +5,28 @@ workflows:
     integrations:
       app_store_connect: Guia Vip
     environment:
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: br.com.fabricadeaplicativos.app2203439
+      groups:
+        - ios_signing
+      vars:
+        BUNDLE_ID: br.com.fabricadeaplicativos.app2203439
+        XCODE_WORKSPACE: "Guia Vip/src/Guia Vip.xcworkspace"
+        XCODE_SCHEME: "Guia Vip"
     scripts:
+      - name: Instalar certificado e perfil
+        script: |
+          keychain initialize
+          certificate fetch-certificate --profile "$CM_PROVISIONING_PROFILE"
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Instalar dependencias CocoaPods
         script: |
           cd "Guia Vip/src"
           pod install --repo-update
       - name: Build IPA para App Store
         script: |
-          xcode-project use-profiles
           xcode-project build-ipa \
-            --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
-            --scheme "Guia Vip"
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
