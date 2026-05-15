@@ -10,6 +10,7 @@ workflows:
       vars:
         XCODE_WORKSPACE: "Guia Vip/src/Guia Vip.xcworkspace"
         XCODE_SCHEME: "Guia Vip"
+        BUNDLE_ID: "br.com.fabricadeaplicativos.app2203439"
     scripts:
       - name: Instalar certificado e perfil
         script: |
@@ -25,7 +26,7 @@ workflows:
         script: |
           cd "Guia Vip/src"
           pod install --repo-update
-      - name: Build IPA para App Store
+      - name: Arquivar app
         script: |
           xcodebuild \
             -workspace "$XCODE_WORKSPACE" \
@@ -37,15 +38,19 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="iPhone Distribution" \
             PROVISIONING_PROFILE_SPECIFIER="Guia VIP App Store" \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            2>&1 | tee /tmp/xcodebuild_full.log
-          echo "Exit code: ${PIPESTATUS[0]}"
-          exit ${PIPESTATUS[0]}
+            COMPILER_INDEX_STORE_ENABLE=NO
+      - name: Exportar IPA
+        script: |
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath /tmp/GuiaVip.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/ios/ipa
     artifacts:
-      - /tmp/xcodebuild_full.log
+      - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: false
-        submit_to_app_store: true
+        submit_to_testflight: true
+        submit_to_app_store: false
