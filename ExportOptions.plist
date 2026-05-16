@@ -7,11 +7,6 @@
     <key>teamID</key>
     <string>3QYS8AW46V</string>
     <key>signingStyle</key>
-    <string>manual</string>
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>br.com.fabricadeaplicativos.app2203439</key>
-        <string>Guia VIP App Store</string>
-    </dict>
+    <string>automatic</string>
 </dict>
 </plist>
