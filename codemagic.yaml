@@ -5,25 +5,22 @@ workflows:
     integrations:
       app_store_connect: Guia Vip
     environment:
-      groups:
-        - ios_signing
       vars:
         XCODE_WORKSPACE: "Guia Vip/src/Guia Vip.xcworkspace"
         XCODE_SCHEME: "Guia Vip"
+        BUNDLE_ID: "br.com.fabricadeaplicativos.app2203439"
     scripts:
-      - name: Instalar certificado e perfil
+      - name: Configurar certificado e perfil
         script: |
           keychain initialize
-          app-store-connect certificates list --type IOS_DISTRIBUTION || true
-          app-store-connect certificates create --type IOS_DISTRIBUTION --save || true
+          openssl genrsa -out /tmp/cert_key.pem 2048
+          app-store-connect fetch-signing-files \
+            --type IOS_APP_STORE \
+            --bundle-id "$BUNDLE_ID" \
+            --certificate-key @file:/tmp/cert_key.pem \
+            --create
           keychain add-certificates
-          echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          UUID=$(security cms -D -i /tmp/profile.mobileprovision | grep -A1 UUID | grep string | sed -e 's/.*<string>//' -e 's/<\/string>//')
-          echo "Profile UUID: $UUID"
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
           xcode-project use-profiles
-          security find-identity -v -p codesigning
       - name: Instalar dependencias CocoaPods
         script: |
           cd "Guia Vip/src"
@@ -42,31 +39,14 @@ workflows:
               f.write(content)
           print("Pods corrigidos!")
           PYEOF
-      - name: Arquivar app
+      - name: Build IPA
         script: |
-          xcodebuild \
-            -workspace "$XCODE_WORKSPACE" \
-            -scheme "$XCODE_SCHEME" \
-            -configuration Release \
-            -archivePath /tmp/GuiaVip.xcarchive \
-            archive \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            2>&1 | tee /tmp/build.log
-          BUILD_EXIT=${PIPESTATUS[0]}
-          echo "Build exit code: $BUILD_EXIT"
-          exit $BUILD_EXIT
-      - name: Exportar IPA
-        script: |
-          mkdir -p build/ios/ipa
-          xcodebuild -exportArchive \
-            -archivePath /tmp/GuiaVip.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath build/ios/ipa \
-            2>&1 | tee /tmp/export.log
+          xcode-project build-ipa \
+            --workspace "$XCODE_WORKSPACE" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
       - build/ios/ipa/*.ipa
-      - /tmp/build.log
-      - /tmp/export.log
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
