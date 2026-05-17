@@ -9,7 +9,7 @@
     <key>signingStyle</key>
     <string>manual</string>
     <key>signingCertificate</key>
-    <string>iOS Distribution</string>
+    <string>Apple Distribution</string>
     <key>provisioningProfiles</key>
     <dict>
         <key>br.com.fabricadeaplicativos.app2203439</key>
