@@ -20,7 +20,10 @@ jobs:
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
           keychain initialize
-          keychain add-certificates
+          keychain add-certificates \
+            --api-key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
+            --api-issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+            --api-private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY"
           
           # Cria perfil dinamicamente
           mkdir -p /tmp/profiles
