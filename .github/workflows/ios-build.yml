@@ -16,15 +16,19 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          # Cria arquivo de API key pro fastlane
-          cat > /tmp/api_key.json << APIEOF
-          {
-            "key_id": "$APP_STORE_CONNECT_KEY_IDENTIFIER",
-            "issuer_id": "$APP_STORE_CONNECT_ISSUER_ID",
-            "key": "$APP_STORE_CONNECT_PRIVATE_KEY",
-            "in_house": false
-          }
-          APIEOF
+          # Cria arquivo de API key pro fastlane usando Python (escapa corretamente)
+          python3 -c "
+import json, os
+data = {
+    'key_id': os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'],
+    'issuer_id': os.environ['APP_STORE_CONNECT_ISSUER_ID'],
+    'key': os.environ['APP_STORE_CONNECT_PRIVATE_KEY'],
+    'in_house': False
+}
+with open('/tmp/api_key.json', 'w') as f:
+    json.dump(data, f)
+print('api_key.json criado com sucesso')
+"
           
           mkdir -p /tmp/certs /tmp/profiles
           
