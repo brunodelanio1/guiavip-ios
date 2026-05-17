@@ -14,16 +14,60 @@ workflows:
       - name: Configurar certificado e perfil
         script: |
           keychain initialize
-          keychain add-certificates
+          
+          # Gera chave e cria certificado
+          openssl genrsa -out /tmp/dist.key 2048
+          mkdir -p /tmp/certs
+          app-store-connect certificates create \
+            --type IOS_DISTRIBUTION \
+            --certificate-key @file:/tmp/dist.key \
+            --save \
+            --certificates-dir /tmp/certs || true
+          
+          # Converte para p12
+          for cert in /tmp/certs/*.cer; do
+            [ -f "$cert" ] || continue
+            openssl x509 -inform DER -in "$cert" -out /tmp/dist_cert.pem
+            openssl pkcs12 -export \
+              -inkey /tmp/dist.key \
+              -in /tmp/dist_cert.pem \
+              -out /tmp/dist_cert.p12 \
+              -passout pass:codemagic123 2>/dev/null || \
+            openssl pkcs12 -export -legacy \
+              -inkey /tmp/dist.key \
+              -in /tmp/dist_cert.pem \
+              -out /tmp/dist_cert.p12 \
+              -passout pass:codemagic123
+          done
+          
+          # Importa para o keychain PADRÃO (sem -k)
+          security import /tmp/dist_cert.p12 \
+            -P codemagic123 \
+            -T /usr/bin/codesign \
+            -A
+          
+          # Pega o keychain padrão e libera acesso
+          DEFAULT_KC=$(security default-keychain | tr -d ' "')
+          echo "Keychain padrão: $DEFAULT_KC"
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "${CM_KEYCHAIN_PASSWORD:-}" \
+            "$DEFAULT_KC" 2>/dev/null || true
+          
+          security find-identity -v -p codesigning
+          
+          # Instala perfil
           echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           UUID=$(security cms -D -i /tmp/profile.mobileprovision | grep -A1 UUID | grep string | sed -e 's/.*<string>//' -e 's/<\/string>//')
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
           xcode-project use-profiles
+
       - name: Instalar dependencias CocoaPods
         script: |
           cd "Guia Vip/src"
           pod install --repo-update
+
       - name: Corrigir code signing dos Pods
         script: |
           python3 - << 'PYEOF'
@@ -38,6 +82,7 @@ workflows:
               f.write(content)
           print("Pods corrigidos!")
           PYEOF
+
       - name: Arquivar app
         script: |
           xcodebuild \
@@ -49,6 +94,7 @@ workflows:
             COMPILER_INDEX_STORE_ENABLE=NO \
             2>&1 | tee /tmp/build.log
           exit ${PIPESTATUS[0]}
+
       - name: Exportar IPA
         script: |
           mkdir -p build/ios/ipa
@@ -57,6 +103,7 @@ workflows:
             -exportOptionsPlist ExportOptions.plist \
             -exportPath build/ios/ipa \
             2>&1 | tee /tmp/export.log
+
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/build.log
