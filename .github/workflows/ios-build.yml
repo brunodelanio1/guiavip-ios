@@ -1,0 +1,106 @@
+name: iOS Build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Codemagic CLI tools
+        run: pip3 install codemagic-cli-tools
+
+      - name: Setup certificate e perfil
+        env:
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          keychain initialize
+          keychain add-certificates
+          
+          # Cria perfil dinamicamente
+          mkdir -p /tmp/profiles
+          BUNDLE_ID="br.com.fabricadeaplicativos.app2203439"
+          
+          BUNDLE_RESOURCE_ID=$(app-store-connect bundle-ids list \
+            --identifier "$BUNDLE_ID" \
+            --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'])" 2>/dev/null || echo "")
+          
+          CERT_RESOURCE_ID=$(app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'])" 2>/dev/null || echo "")
+          
+          echo "Bundle ID: $BUNDLE_RESOURCE_ID"
+          echo "Cert ID: $CERT_RESOURCE_ID"
+          
+          if [ -n "$BUNDLE_RESOURCE_ID" ] && [ -n "$CERT_RESOURCE_ID" ]; then
+            app-store-connect profiles create \
+              --name "Guia VIP GHA" \
+              --type IOS_APP_STORE \
+              --bundle-id "$BUNDLE_RESOURCE_ID" \
+              --certificate "$CERT_RESOURCE_ID" \
+              --save \
+              --profiles-dir /tmp/profiles
+          fi
+          
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          for profile in /tmp/profiles/*.mobileprovision; do
+            [ -f "$profile" ] || continue
+            UUID=$(security cms -D -i "$profile" | grep -A1 UUID | grep string | sed -e 's/.*<string>//' -e 's/<\/string>//')
+            cp "$profile" ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+            echo "Perfil instalado: $UUID"
+          done
+          
+          security find-identity -v -p codesigning
+          xcode-project use-profiles
+
+      - name: Install CocoaPods
+        run: |
+          cd "Guia Vip/src"
+          pod install --repo-update
+
+      - name: Fix Pods code signing
+        run: |
+          python3 - << 'PYEOF'
+          import re
+          path = 'Guia Vip/src/Pods/Pods.xcodeproj/project.pbxproj'
+          with open(path, 'r') as f:
+              content = f.read()
+          content = re.sub(r'CODE_SIGN_STYLE = Manual;', 'CODE_SIGN_STYLE = Automatic;', content)
+          content = re.sub(r'PROVISIONING_PROFILE_SPECIFIER = "[^"]+";', 'PROVISIONING_PROFILE_SPECIFIER = "";', content)
+          content = re.sub(r'CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;', content)
+          with open(path, 'w') as f:
+              f.write(content)
+          print("Pods corrigidos!")
+          PYEOF
+
+      - name: Build IPA
+        env:
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          xcode-project build-ipa \
+            --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
+            --scheme "Guia Vip"
+
+      - name: Upload to TestFlight
+        env:
+          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        run: |
+          app-store-connect publish \
+            --path build/ios/ipa/*.ipa \
+            --testflight
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-build
+          path: build/ios/ipa/*.ipa
