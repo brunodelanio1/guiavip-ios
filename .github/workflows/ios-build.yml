@@ -10,46 +10,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Codemagic CLI tools
-        run: pip3 install codemagic-cli-tools --break-system-packages
-
-      - name: Setup certificate e perfil
+      - name: Setup certificate e perfil com fastlane
         env:
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          keychain initialize
-          keychain add-certificates \
-            --api-key-id "$APP_STORE_CONNECT_KEY_IDENTIFIER" \
-            --api-issuer "$APP_STORE_CONNECT_ISSUER_ID" \
-            --api-private-key "@env:APP_STORE_CONNECT_PRIVATE_KEY"
+          # Cria arquivo de API key pro fastlane
+          cat > /tmp/api_key.json << APIEOF
+          {
+            "key_id": "$APP_STORE_CONNECT_KEY_IDENTIFIER",
+            "issuer_id": "$APP_STORE_CONNECT_ISSUER_ID",
+            "key": "$APP_STORE_CONNECT_PRIVATE_KEY",
+            "in_house": false
+          }
+          APIEOF
           
-          # Cria perfil dinamicamente
-          mkdir -p /tmp/profiles
-          BUNDLE_ID="br.com.fabricadeaplicativos.app2203439"
+          mkdir -p /tmp/certs /tmp/profiles
           
-          BUNDLE_RESOURCE_ID=$(app-store-connect bundle-ids list \
-            --identifier "$BUNDLE_ID" \
-            --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'])" 2>/dev/null || echo "")
+          # Baixa/cria certificado de distribuição (salva chave privada no keychain)
+          fastlane cert \
+            --api_key_path /tmp/api_key.json \
+            --output_path /tmp/certs \
+            --platform ios
           
-          CERT_RESOURCE_ID=$(app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --json 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['id'])" 2>/dev/null || echo "")
+          # Baixa/cria provisioning profile App Store
+          fastlane sigh \
+            --api_key_path /tmp/api_key.json \
+            --bundle_identifier "br.com.fabricadeaplicativos.app2203439" \
+            --output_path /tmp/profiles \
+            --platform ios
           
-          echo "Bundle ID: $BUNDLE_RESOURCE_ID"
-          echo "Cert ID: $CERT_RESOURCE_ID"
-          
-          if [ -n "$BUNDLE_RESOURCE_ID" ] && [ -n "$CERT_RESOURCE_ID" ]; then
-            app-store-connect profiles create \
-              --name "Guia VIP GHA" \
-              --type IOS_APP_STORE \
-              --bundle-id "$BUNDLE_RESOURCE_ID" \
-              --certificate "$CERT_RESOURCE_ID" \
-              --save \
-              --profiles-dir /tmp/profiles
-          fi
-          
+          # Instala o perfil
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           for profile in /tmp/profiles/*.mobileprovision; do
             [ -f "$profile" ] || continue
@@ -58,8 +50,8 @@ jobs:
             echo "Perfil instalado: $UUID"
           done
           
+          echo "=== Certificados disponíveis ==="
           security find-identity -v -p codesigning
-          xcode-project use-profiles
 
       - name: Install CocoaPods
         run: |
@@ -82,14 +74,22 @@ jobs:
           PYEOF
 
       - name: Build IPA
-        env:
-          APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          xcode-project build-ipa \
-            --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
-            --scheme "Guia Vip"
+          xcodebuild \
+            -workspace "Guia Vip/src/Guia Vip.xcworkspace" \
+            -scheme "Guia Vip" \
+            -configuration Release \
+            -archivePath /tmp/GuiaVip.xcarchive \
+            archive \
+            COMPILER_INDEX_STORE_ENABLE=NO \
+            2>&1
+          
+          mkdir -p build/ios/ipa
+          xcodebuild -exportArchive \
+            -archivePath /tmp/GuiaVip.xcarchive \
+            -exportOptionsPlist ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            2>&1
 
       - name: Upload to TestFlight
         env:
@@ -97,6 +97,7 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
+          pip3 install codemagic-cli-tools --break-system-packages
           app-store-connect publish \
             --path build/ios/ipa/*.ipa \
             --testflight
@@ -106,4 +107,5 @@ jobs:
         if: always()
         with:
           name: ios-build
-          path: build/ios/ipa/*.ipa
+          path: |
+            build/ios/ipa/*.ipa
