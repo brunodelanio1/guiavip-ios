@@ -38,7 +38,7 @@ jobs:
 
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
-            --bundle_identifier "br.com.fabricadeaplicativos.app2203439" \
+            --app_identifier "br.com.fabricadeaplicativos.app2203439" \
             --output_path /tmp/profiles \
             --platform ios
 
