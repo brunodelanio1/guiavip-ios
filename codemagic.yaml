@@ -14,9 +14,11 @@ workflows:
     scripts:
       - name: Configurar certificado e perfil
         script: |
-          set -e
-          KEYCHAIN_PATH=~/Library/Keychains/cm_keychain.keychain-db
-          keychain initialize
+          # Captura o path correto do keychain criado pelo Codemagic
+          KEYCHAIN_INIT=$(keychain initialize 2>&1)
+          echo "$KEYCHAIN_INIT"
+          KEYCHAIN_PATH=$(echo "$KEYCHAIN_INIT" | grep -o "/Users/builder/Library/codemagic-cli-tools/keychains/.*\.keychain-db" | head -1)
+          echo "=== Keychain path: $KEYCHAIN_PATH ==="
           
           # Gera chave privada
           openssl genrsa -out /tmp/dist.key 2048
@@ -29,29 +31,27 @@ workflows:
             --save \
             --certificates-dir /tmp/certs
           
-          echo "=== Arquivos gerados em /tmp/certs ==="
+          echo "=== Arquivos em /tmp/certs ==="
           ls -la /tmp/certs/
           
           # Converte .cer para .p12 com chave privada
-          for cert in /tmp/certs/*.cer /tmp/certs/*.pem; do
+          for cert in /tmp/certs/*.cer; do
             [ -f "$cert" ] || continue
             echo "Processando: $cert"
-            openssl x509 -inform DER -in "$cert" -out /tmp/dist_cert.pem 2>/dev/null \
-              || cp "$cert" /tmp/dist_cert.pem
+            openssl x509 -inform DER -in "$cert" -out /tmp/dist_cert.pem
             openssl pkcs12 -export \
               -inkey /tmp/dist.key \
               -in /tmp/dist_cert.pem \
               -out /tmp/dist_cert.p12 \
-              -passout pass:codemagic123 \
-              -legacy 2>/dev/null \
-              || openssl pkcs12 -export \
-                -inkey /tmp/dist.key \
-                -in /tmp/dist_cert.pem \
-                -out /tmp/dist_cert.p12 \
-                -passout pass:codemagic123
+              -passout pass:codemagic123 2>/dev/null || \
+            openssl pkcs12 -export -legacy \
+              -inkey /tmp/dist.key \
+              -in /tmp/dist_cert.pem \
+              -out /tmp/dist_cert.p12 \
+              -passout pass:codemagic123
           done
           
-          # Importa no keychain do Codemagic
+          # Importa no keychain CORRETO
           security import /tmp/dist_cert.p12 \
             -k "$KEYCHAIN_PATH" \
             -P codemagic123 \
@@ -59,14 +59,11 @@ workflows:
             -T /usr/bin/security \
             -A
           
-          # Permite acesso — tenta com CM_KEYCHAIN_PASSWORD e sem senha
+          # Permite acesso ao codesign
           security set-key-partition-list \
             -S apple-tool:,apple:,codesign: \
             -s -k "${CM_KEYCHAIN_PASSWORD:-}" \
-            "$KEYCHAIN_PATH" 2>/dev/null || \
-          security set-key-partition-list \
-            -S apple-tool:,apple:,codesign: \
-            -s "$KEYCHAIN_PATH" 2>/dev/null || true
+            "$KEYCHAIN_PATH" 2>/dev/null || true
           
           echo "=== Identidades no keychain ==="
           security find-identity -v -p codesigning
@@ -75,7 +72,7 @@ workflows:
           echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           UUID=$(security cms -D -i /tmp/profile.mobileprovision | grep -A1 UUID | grep string | sed -e 's/.*<string>//' -e 's/<\/string>//')
-          echo "UUID do perfil: $UUID"
+          echo "UUID: $UUID"
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
           xcode-project use-profiles
 
