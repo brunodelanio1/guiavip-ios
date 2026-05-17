@@ -16,45 +16,40 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          # Cria arquivo de API key pro fastlane usando Python (escapa corretamente)
-          python3 -c "
-import json, os
-data = {
-    'key_id': os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'],
-    'issuer_id': os.environ['APP_STORE_CONNECT_ISSUER_ID'],
-    'key': os.environ['APP_STORE_CONNECT_PRIVATE_KEY'],
-    'in_house': False
-}
-with open('/tmp/api_key.json', 'w') as f:
-    json.dump(data, f)
-print('api_key.json criado com sucesso')
-"
-          
+          python3 << 'PYEOF'
+          import json, os
+          data = {
+              "key_id": os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"],
+              "issuer_id": os.environ["APP_STORE_CONNECT_ISSUER_ID"],
+              "key": os.environ["APP_STORE_CONNECT_PRIVATE_KEY"],
+              "in_house": False
+          }
+          with open("/tmp/api_key.json", "w") as f:
+              json.dump(data, f)
+          print("api_key.json criado!")
+          PYEOF
+
           mkdir -p /tmp/certs /tmp/profiles
-          
-          # Baixa/cria certificado de distribuição (salva chave privada no keychain)
+
           fastlane cert \
             --api_key_path /tmp/api_key.json \
             --output_path /tmp/certs \
             --platform ios
-          
-          # Baixa/cria provisioning profile App Store
+
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
             --bundle_identifier "br.com.fabricadeaplicativos.app2203439" \
             --output_path /tmp/profiles \
             --platform ios
-          
-          # Instala o perfil
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           for profile in /tmp/profiles/*.mobileprovision; do
             [ -f "$profile" ] || continue
             UUID=$(security cms -D -i "$profile" | grep -A1 UUID | grep string | sed -e 's/.*<string>//' -e 's/<\/string>//')
-            cp "$profile" ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+            cp "$profile" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
             echo "Perfil instalado: $UUID"
           done
-          
-          echo "=== Certificados disponíveis ==="
+
           security find-identity -v -p codesigning
 
       - name: Install CocoaPods
@@ -64,15 +59,15 @@ print('api_key.json criado com sucesso')
 
       - name: Fix Pods code signing
         run: |
-          python3 - << 'PYEOF'
+          python3 << 'PYEOF'
           import re
-          path = 'Guia Vip/src/Pods/Pods.xcodeproj/project.pbxproj'
-          with open(path, 'r') as f:
+          path = "Guia Vip/src/Pods/Pods.xcodeproj/project.pbxproj"
+          with open(path, "r") as f:
               content = f.read()
-          content = re.sub(r'CODE_SIGN_STYLE = Manual;', 'CODE_SIGN_STYLE = Automatic;', content)
+          content = re.sub(r"CODE_SIGN_STYLE = Manual;", "CODE_SIGN_STYLE = Automatic;", content)
           content = re.sub(r'PROVISIONING_PROFILE_SPECIFIER = "[^"]+";', 'PROVISIONING_PROFILE_SPECIFIER = "";', content)
-          content = re.sub(r'CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;', content)
-          with open(path, 'w') as f:
+          content = re.sub(r"CODE_SIGNING_REQUIRED = YES;", "CODE_SIGNING_REQUIRED = NO;", content)
+          with open(path, "w") as f:
               f.write(content)
           print("Pods corrigidos!")
           PYEOF
@@ -85,15 +80,13 @@ print('api_key.json criado com sucesso')
             -configuration Release \
             -archivePath /tmp/GuiaVip.xcarchive \
             archive \
-            COMPILER_INDEX_STORE_ENABLE=NO \
-            2>&1
-          
+            COMPILER_INDEX_STORE_ENABLE=NO
+
           mkdir -p build/ios/ipa
           xcodebuild -exportArchive \
             -archivePath /tmp/GuiaVip.xcarchive \
             -exportOptionsPlist ExportOptions.plist \
-            -exportPath build/ios/ipa \
-            2>&1
+            -exportPath build/ios/ipa
 
       - name: Upload to TestFlight
         env:
@@ -103,7 +96,7 @@ print('api_key.json criado com sucesso')
         run: |
           pip3 install codemagic-cli-tools --break-system-packages
           app-store-connect publish \
-            --path build/ios/ipa/*.ipa \
+            --path "build/ios/ipa/*.ipa" \
             --testflight
 
       - name: Upload artifacts
@@ -111,5 +104,4 @@ print('api_key.json criado com sucesso')
         if: always()
         with:
           name: ios-build
-          path: |
-            build/ios/ipa/*.ipa
+          path: build/ios/ipa/*.ipa
