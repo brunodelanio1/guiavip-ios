@@ -7,6 +7,13 @@
     <key>teamID</key>
     <string>3QYS8AW46V</string>
     <key>signingStyle</key>
-    <string>automatic</string>
+    <string>manual</string>
+    <key>signingCertificate</key>
+    <string>iOS Distribution</string>
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>br.com.fabricadeaplicativos.app2203439</key>
+        <string>Guia VIP App Store</string>
+    </dict>
 </dict>
 </plist>
