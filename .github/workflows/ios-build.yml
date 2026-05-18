@@ -81,8 +81,8 @@ jobs:
           try:
               with open(path, "rb") as f:
                   plist = plistlib.load(f)
-              # Remove Associated Domains - nao necessario para PWA basico
               plist.pop("com.apple.developer.associated-domains", None)
+              plist.pop("aps-environment", None)
               with open(path, "wb") as f:
                   plistlib.dump(plist, f)
               print("Entitlements simplificado:", list(plist.keys()))
