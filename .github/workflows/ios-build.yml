@@ -73,6 +73,23 @@ jobs:
           print("Pods corrigidos!")
           PYEOF
 
+      - name: Simplificar Entitlements
+        run: |
+          python3 << 'PYEOF'
+          import plistlib
+          path = "Guia Vip/src/Guia Vip/Entitlements/Entitlements.plist"
+          try:
+              with open(path, "rb") as f:
+                  plist = plistlib.load(f)
+              # Remove Associated Domains - nao necessario para PWA basico
+              plist.pop("com.apple.developer.associated-domains", None)
+              with open(path, "wb") as f:
+                  plistlib.dump(plist, f)
+              print("Entitlements simplificado:", list(plist.keys()))
+          except Exception as e:
+              print("Erro:", e)
+          PYEOF
+
       - name: Build IPA
         run: |
           xcodebuild \
