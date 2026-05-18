@@ -78,6 +78,7 @@ jobs:
             -workspace "Guia Vip/src/Guia Vip.xcworkspace" \
             -scheme "Guia Vip" \
             -configuration Release \
+            -destination "generic/platform=iOS" \
             -archivePath /tmp/GuiaVip.xcarchive \
             archive \
             COMPILER_INDEX_STORE_ENABLE=NO
