@@ -34,14 +34,14 @@ jobs:
           fastlane cert \
             --api_key_path /tmp/api_key.json \
             --output_path /tmp/certs \
-            --platform ios \
-            --force
+            --platform ios
 
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
             --app_identifier "br.com.fabricadeaplicativos.app2203439" \
             --output_path /tmp/profiles \
-            --platform ios
+            --platform ios \
+            --force
 
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
           for profile in /tmp/profiles/*.mobileprovision; do
