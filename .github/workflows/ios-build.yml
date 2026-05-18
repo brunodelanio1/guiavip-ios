@@ -34,7 +34,8 @@ jobs:
           fastlane cert \
             --api_key_path /tmp/api_key.json \
             --output_path /tmp/certs \
-            --platform ios
+            --platform ios \
+            --force
 
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
