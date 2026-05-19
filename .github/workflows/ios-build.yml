@@ -6,9 +6,19 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            Guia Vip/src/Pods
+            ~/.cocoapods
+          key: pods-${{ hashFiles('Guia Vip/src/Podfile.lock') }}
+          restore-keys: pods-
 
       - name: Setup certificate e perfil com fastlane
         env:
@@ -58,7 +68,7 @@ jobs:
       - name: Install CocoaPods
         run: |
           cd "Guia Vip/src"
-          pod install --repo-update
+          pod install
 
       - name: Fix Pods code signing
         run: |
@@ -73,23 +83,6 @@ jobs:
           with open(path, "w") as f:
               f.write(content)
           print("Pods corrigidos!")
-          PYEOF
-
-      - name: Simplificar Entitlements
-        run: |
-          python3 << 'PYEOF'
-          import plistlib
-          path = "Guia Vip/src/Guia Vip/Entitlements/Entitlements.plist"
-          try:
-              with open(path, "rb") as f:
-                  plist = plistlib.load(f)
-              plist.pop("com.apple.developer.associated-domains", None)
-              plist.pop("aps-environment", None)
-              with open(path, "wb") as f:
-                  plistlib.dump(plist, f)
-              print("Entitlements simplificado:", list(plist.keys()))
-          except Exception as e:
-              print("Erro:", e)
           PYEOF
 
       - name: Build IPA
@@ -115,7 +108,7 @@ jobs:
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
-          pip3 install codemagic-cli-tools --break-system-packages
+          pip3 install codemagic-cli-tools --break-system-packages --quiet
           app-store-connect publish \
             --path "build/ios/ipa/*.ipa" \
             --testflight
