@@ -141,12 +141,31 @@ jobs:
 
           gem install fastlane --no-document --quiet
 
+          cat > /tmp/ExportOptions.plist << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>3QYS8AW46V</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>br.com.fabricadeaplicativos.app2203439</key>
+              <string>br.com.fabricadeaplicativos.app2203439 AppStore 1779228936</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+
           fastlane gym \
             --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
             --scheme "Guia Vip" \
             --configuration Release \
-            --export_method app-store \
-            --team_id "3QYS8AW46V" \
+            --export_options /tmp/ExportOptions.plist \
             --output_directory build/ios/ipa \
             --output_name "GuiaVip.ipa" \
             --clean true \
