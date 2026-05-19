@@ -146,6 +146,7 @@ jobs:
             --scheme "Guia Vip" \
             --configuration Release \
             --export_method app-store \
+            --team_id "3QYS8AW46V" \
             --output_directory build/ios/ipa \
             --output_name "GuiaVip.ipa" \
             --clean true \
