@@ -96,12 +96,38 @@ jobs:
             echo "============================================"
           fi
 
-          # Baixa e instala o perfil
+          # Baixa perfil para local conhecido
+          mkdir -p /tmp/profiles
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
             --app_identifier "br.com.fabricadeaplicativos.app2203439" \
             --platform ios \
-            --force
+            --force \
+            --output_path /tmp/profiles
+
+          # Instala perfil com UUID correto via Python
+          python3 << 'PYEOF'
+          import subprocess, os, shutil, glob, plistlib
+
+          profiles = glob.glob('/tmp/profiles/*.mobileprovision')
+          if not profiles:
+              print("ERRO: Nenhum perfil encontrado!")
+              exit(1)
+
+          profile_path = profiles[0]
+          result = subprocess.run(['security', 'cms', '-D', '-i', profile_path], capture_output=True)
+          plist = plistlib.loads(result.stdout)
+          uuid = plist['UUID']
+          name = plist.get('Name', 'unknown')
+
+          dest_dir = os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles')
+          os.makedirs(dest_dir, exist_ok=True)
+          dest = f'{dest_dir}/{uuid}.mobileprovision'
+          shutil.copy(profile_path, dest)
+          print(f'Perfil instalado: {name} ({uuid})')
+          for f in os.listdir(dest_dir):
+              print(f'  -> {f}')
+          PYEOF
 
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
