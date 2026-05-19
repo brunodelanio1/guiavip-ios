@@ -20,12 +20,25 @@ jobs:
           key: pods-${{ hashFiles('Guia Vip/src/Podfile.lock') }}
           restore-keys: pods-
 
-      - name: Setup certificate e perfil com fastlane
+      - name: Install CocoaPods
+        run: |
+          cd "Guia Vip/src"
+          pod install
+
+      - name: Setup Keychain e Certificado
         env:
           APP_STORE_CONNECT_KEY_IDENTIFIER: ${{ secrets.APP_STORE_CONNECT_KEY_IDENTIFIER }}
           APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
           APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
+          KEYCHAIN_PASSWORD="temporarypassword"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
           python3 << 'PYEOF'
           import json, os
           data = {
@@ -44,7 +57,9 @@ jobs:
           fastlane cert \
             --api_key_path /tmp/api_key.json \
             --output_path /tmp/certs \
-            --platform ios
+            --platform ios \
+            --keychain_path "$KEYCHAIN_PATH" \
+            --keychain_password "$KEYCHAIN_PASSWORD"
 
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
@@ -61,14 +76,10 @@ jobs:
             echo "Perfil instalado: $UUID"
           done
 
-          pip3 install codemagic-cli-tools --break-system-packages --quiet
-          xcode-project use-profiles
-          security find-identity -v -p codesigning
+          security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
-      - name: Install CocoaPods
-        run: |
-          cd "Guia Vip/src"
-          pod install
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
       - name: Fix Pods code signing
         run: |
@@ -85,22 +96,22 @@ jobs:
           print("Pods corrigidos!")
           PYEOF
 
-      - name: Build IPA
+      - name: Build IPA com fastlane gym
         run: |
-          xcodebuild \
-            -workspace "Guia Vip/src/Guia Vip.xcworkspace" \
-            -scheme "Guia Vip" \
-            -configuration Release \
-            -destination "generic/platform=iOS" \
-            -archivePath /tmp/GuiaVip.xcarchive \
-            archive \
-            COMPILER_INDEX_STORE_ENABLE=NO
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
-          mkdir -p build/ios/ipa
-          xcodebuild -exportArchive \
-            -archivePath /tmp/GuiaVip.xcarchive \
-            -exportOptionsPlist ExportOptions.plist \
-            -exportPath build/ios/ipa
+          gem install fastlane --no-document --quiet
+
+          fastlane gym \
+            --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
+            --scheme "Guia Vip" \
+            --configuration Release \
+            --export_method app-store \
+            --export_options ExportOptions.plist \
+            --output_directory build/ios/ipa \
+            --output_name "GuiaVip.ipa" \
+            --clean true \
+            --xcargs "COMPILER_INDEX_STORE_ENABLE=NO OTHER_CODE_SIGN_FLAGS='--keychain $KEYCHAIN_PATH'"
 
       - name: Upload to TestFlight
         env:
@@ -119,3 +130,8 @@ jobs:
         with:
           name: ios-build
           path: build/ios/ipa/*.ipa
+
+      - name: Limpar keychain
+        if: always()
+        run: |
+          security delete-keychain "$KEYCHAIN_PATH" || true
