@@ -87,7 +87,7 @@ jobs:
               -f pkcs12 \
               -P "$P12_PASSWORD" \
               -o /tmp/certs/distribution.p12
-            base64 /tmp/certs/distribution.p12 > /tmp/certs/distribution_base64.txt
+            base64 -i /tmp/certs/distribution.p12 -o /tmp/certs/distribution_base64.txt
             echo "============================================"
             echo "ATENÇÃO: Salve o arquivo distribution_base64.txt"
             echo "como Secret CERTIFICATE_P12_BASE64 no GitHub!"
