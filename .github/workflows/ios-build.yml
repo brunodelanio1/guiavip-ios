@@ -110,7 +110,6 @@ jobs:
 
       - name: Upload certificado p12 como artifact
         uses: actions/upload-artifact@v4
-        if: ${{ env.CERTIFICATE_EXPORTED == 'true' || secrets.CERTIFICATE_P12_BASE64 == '' }}
         with:
           name: certificate-p12
           path: /tmp/certs/distribution_base64.txt
