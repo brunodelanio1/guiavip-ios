@@ -81,6 +81,11 @@ jobs:
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
 
+      - name: Injetar perfil no projeto Xcode
+        run: |
+          pip3 install codemagic-cli-tools --break-system-packages --quiet
+          xcode-project use-profiles
+
       - name: Fix Pods code signing
         run: |
           python3 << 'PYEOF'
