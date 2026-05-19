@@ -167,35 +167,62 @@ jobs:
 
           gem install fastlane --no-document --quiet
 
-          cat > /tmp/ExportOptions.plist << 'EOF'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>3QYS8AW46V</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>br.com.fabricadeaplicativos.app2203439</key>
-              <string>br.com.fabricadeaplicativos.app2203439 AppStore 1779228936</string>
-            </dict>
-          </dict>
-          </plist>
-          EOF
+          # Pega UUID real do perfil instalado
+          PROFILE_UUID=$(python3 -c "
+import subprocess, glob, plistlib
+profiles = glob.glob('/tmp/profiles/*.mobileprovision')
+result = subprocess.run(['security', 'cms', '-D', '-i', profiles[0]], capture_output=True)
+plist = plistlib.loads(result.stdout)
+print(plist['UUID'])
+")
+          echo "UUID do perfil: $PROFILE_UUID"
 
+          # Cria ExportOptions com UUID direto
+          cat > /tmp/ExportOptions.plist << EXPORTEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key>
+  <string>app-store</string>
+  <key>teamID</key>
+  <string>3QYS8AW46V</string>
+  <key>signingStyle</key>
+  <string>manual</string>
+  <key>signingCertificate</key>
+  <string>Apple Distribution</string>
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>br.com.fabricadeaplicativos.app2203439</key>
+    <string>$PROFILE_UUID</string>
+  </dict>
+</dict>
+</plist>
+EXPORTEOF
+
+          cat /tmp/ExportOptions.plist
+
+          # Gym só faz o archive
+          ARCHIVE_PATH=/tmp/GuiaVip.xcarchive
           fastlane gym \
             --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
             --scheme "Guia Vip" \
             --configuration Release \
-            --export_options /tmp/ExportOptions.plist \
-            --output_directory build/ios/ipa \
-            --output_name "GuiaVip.ipa" \
+            --skip_package_ipa true \
+            --archive_path "$ARCHIVE_PATH" \
             --clean true \
             --xcargs "COMPILER_INDEX_STORE_ENABLE=NO OTHER_CODE_SIGN_FLAGS='--keychain $KEYCHAIN_PATH'"
+
+          # Export manual com UUID no plist
+          mkdir -p build/ios/ipa
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          xcodebuild -exportArchive \
+            -archivePath "$ARCHIVE_PATH" \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath build/ios/ipa \
+            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+
+          ls -la build/ios/ipa/
 
       - name: Upload to TestFlight
         env:
