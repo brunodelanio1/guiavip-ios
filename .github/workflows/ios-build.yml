@@ -62,7 +62,10 @@ jobs:
             --keychain_path "$KEYCHAIN_PATH" \
             --keychain_password "$KEYCHAIN_PASSWORD"
 
-          # Baixa e instala o perfil automaticamente (sem --output_path)
+          # Garante que o diretório existe antes do sigh instalar
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+
+          # Baixa e instala o perfil automaticamente
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
             --app_identifier "br.com.fabricadeaplicativos.app2203439" \
@@ -71,7 +74,7 @@ jobs:
 
           # Confirma identidade e perfil instalados
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
-          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/"
+          ls -la "$HOME/Library/MobileDevice/Provisioning Profiles/" || echo "Diretório vazio ou não encontrado"
 
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
