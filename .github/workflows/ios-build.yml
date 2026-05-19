@@ -145,7 +145,7 @@ jobs:
             --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
             --scheme "Guia Vip" \
             --configuration Release \
-            --export_method app-store-connect \
+            --export_method app-store \
             --output_directory build/ios/ipa \
             --output_name "GuiaVip.ipa" \
             --clean true \
