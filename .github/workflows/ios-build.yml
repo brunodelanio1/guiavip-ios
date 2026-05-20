@@ -23,7 +23,7 @@ jobs:
       - name: Selecionar Xcode 26
         run: |
           ls /Applications/ | grep Xcode
-          sudo xcode-select -s /Applications/Xcode_26.app
+          sudo xcode-select -s /Applications/Xcode_26.3.app
           xcodebuild -version
 
       - name: Install CocoaPods
