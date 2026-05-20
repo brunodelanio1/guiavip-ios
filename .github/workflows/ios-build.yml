@@ -33,6 +33,7 @@ jobs:
           CERTIFICATE_P12_BASE64: ${{ secrets.CERTIFICATE_P12_BASE64 }}
           CERTIFICATE_P12_PASSWORD: ${{ secrets.CERTIFICATE_P12_PASSWORD }}
         run: |
+          set -e
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain
           KEYCHAIN_PASSWORD="temporarypassword"
           P12_PASSWORD="guiavip2026"
@@ -42,24 +43,24 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           security list-keychain -d user -s "$KEYCHAIN_PATH"
 
-          python3 << 'PYEOF'
-          import json, os
-          data = {
-              "key_id": os.environ["APP_STORE_CONNECT_KEY_IDENTIFIER"],
-              "issuer_id": os.environ["APP_STORE_CONNECT_ISSUER_ID"],
-              "key": os.environ["APP_STORE_CONNECT_PRIVATE_KEY"],
-              "in_house": False
-          }
-          with open("/tmp/api_key.json", "w") as f:
-              json.dump(data, f)
-          print("api_key.json criado!")
-          PYEOF
-
-          mkdir -p /tmp/certs
+          mkdir -p /tmp/certs /tmp/profiles
           mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
 
+          python3 -c "
+          import json, os
+          data = {
+              'key_id': os.environ['APP_STORE_CONNECT_KEY_IDENTIFIER'],
+              'issuer_id': os.environ['APP_STORE_CONNECT_ISSUER_ID'],
+              'key': os.environ['APP_STORE_CONNECT_PRIVATE_KEY'],
+              'in_house': False
+          }
+          with open('/tmp/api_key.json', 'w') as f:
+              json.dump(data, f)
+          print('api_key.json criado!')
+          "
+
           if [ -n "$CERTIFICATE_P12_BASE64" ]; then
-            echo "Importando certificado do GitHub Secret..."
+            echo "Importando certificado do Secret..."
             echo "$CERTIFICATE_P12_BASE64" | base64 --decode > /tmp/certs/cert.p12
             security import /tmp/certs/cert.p12 \
               -k "$KEYCHAIN_PATH" \
@@ -69,18 +70,16 @@ jobs:
             security set-key-partition-list \
               -S apple-tool:,apple: \
               -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
-            echo "Certificado importado do Secret com sucesso!"
+            echo "Certificado importado com sucesso!"
           else
-            echo "Secret não encontrado. Criando novo certificado..."
+            echo "Criando novo certificado..."
             fastlane cert \
               --api_key_path /tmp/api_key.json \
               --output_path /tmp/certs \
               --platform ios \
               --keychain_path "$KEYCHAIN_PATH" \
               --keychain_password "$KEYCHAIN_PASSWORD"
-
-            echo "Exportando certificado como .p12 para salvar como Secret..."
-            CERT_ID=$(security find-identity -v -p codesigning "$KEYCHAIN_PATH" | grep "Apple Distribution" | awk '{print $2}')
+            echo "Exportando p12..."
             security export \
               -k "$KEYCHAIN_PATH" \
               -t identities \
@@ -88,16 +87,10 @@ jobs:
               -P "$P12_PASSWORD" \
               -o /tmp/certs/distribution.p12
             base64 -i /tmp/certs/distribution.p12 -o /tmp/certs/distribution_base64.txt
-            echo "============================================"
-            echo "ATENÇÃO: Salve o arquivo distribution_base64.txt"
-            echo "como Secret CERTIFICATE_P12_BASE64 no GitHub!"
-            echo "Senha do .p12: $P12_PASSWORD"
-            echo "Salve como Secret CERTIFICATE_P12_PASSWORD"
-            echo "============================================"
+            echo "Salve o arquivo como Secret CERTIFICATE_P12_BASE64"
+            echo "Senha: $P12_PASSWORD -> Secret CERTIFICATE_P12_PASSWORD"
           fi
 
-          # Baixa perfil para local conhecido
-          mkdir -p /tmp/profiles
           fastlane sigh \
             --api_key_path /tmp/api_key.json \
             --app_identifier "br.com.fabricadeaplicativos.app2203439" \
@@ -105,29 +98,24 @@ jobs:
             --force \
             --output_path /tmp/profiles
 
-          # Instala perfil com UUID correto via Python
-          python3 << 'PYEOF'
+          python3 -c "
           import subprocess, os, shutil, glob, plistlib
-
           profiles = glob.glob('/tmp/profiles/*.mobileprovision')
           if not profiles:
-              print("ERRO: Nenhum perfil encontrado!")
+              print('ERRO: perfil nao encontrado')
               exit(1)
-
-          profile_path = profiles[0]
-          result = subprocess.run(['security', 'cms', '-D', '-i', profile_path], capture_output=True)
+          result = subprocess.run(['security', 'cms', '-D', '-i', profiles[0]], capture_output=True)
           plist = plistlib.loads(result.stdout)
           uuid = plist['UUID']
           name = plist.get('Name', 'unknown')
-
           dest_dir = os.path.expanduser('~/Library/MobileDevice/Provisioning Profiles')
-          os.makedirs(dest_dir, exist_ok=True)
           dest = f'{dest_dir}/{uuid}.mobileprovision'
-          shutil.copy(profile_path, dest)
-          print(f'Perfil instalado: {name} ({uuid})')
-          for f in os.listdir(dest_dir):
-              print(f'  -> {f}')
-          PYEOF
+          shutil.copy(profiles[0], dest)
+          print(f'Perfil instalado: {name}')
+          print(f'UUID: {uuid}')
+          with open('/tmp/profile_uuid.txt', 'w') as f:
+              f.write(uuid)
+          "
 
           security find-identity -v -p codesigning "$KEYCHAIN_PATH"
 
@@ -148,62 +136,30 @@ jobs:
 
       - name: Fix Pods code signing
         run: |
-          python3 << 'PYEOF'
+          python3 -c "
           import re
-          path = "Guia Vip/src/Pods/Pods.xcodeproj/project.pbxproj"
-          with open(path, "r") as f:
+          path = 'Guia Vip/src/Pods/Pods.xcodeproj/project.pbxproj'
+          with open(path, 'r') as f:
               content = f.read()
-          content = re.sub(r"CODE_SIGN_STYLE = Manual;", "CODE_SIGN_STYLE = Automatic;", content)
-          content = re.sub(r'PROVISIONING_PROFILE_SPECIFIER = "[^"]+";', 'PROVISIONING_PROFILE_SPECIFIER = "";', content)
-          content = re.sub(r"CODE_SIGNING_REQUIRED = YES;", "CODE_SIGNING_REQUIRED = NO;", content)
-          with open(path, "w") as f:
+          content = re.sub(r'CODE_SIGN_STYLE = Manual;', 'CODE_SIGN_STYLE = Automatic;', content)
+          content = re.sub(r'PROVISIONING_PROFILE_SPECIFIER = \"[^\"]+\";', 'PROVISIONING_PROFILE_SPECIFIER = \"\";', content)
+          content = re.sub(r'CODE_SIGNING_REQUIRED = YES;', 'CODE_SIGNING_REQUIRED = NO;', content)
+          with open(path, 'w') as f:
               f.write(content)
-          print("Pods corrigidos!")
-          PYEOF
+          print('Pods corrigidos!')
+          "
 
-      - name: Build IPA com fastlane gym
+      - name: Build Archive e Export IPA
         run: |
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
 
           gem install fastlane --no-document --quiet
 
-          # Pega UUID real do perfil instalado
-          PROFILE_UUID=$(python3 -c "
-import subprocess, glob, plistlib
-profiles = glob.glob('/tmp/profiles/*.mobileprovision')
-result = subprocess.run(['security', 'cms', '-D', '-i', profiles[0]], capture_output=True)
-plist = plistlib.loads(result.stdout)
-print(plist['UUID'])
-")
-          echo "UUID do perfil: $PROFILE_UUID"
+          PROFILE_UUID=$(cat /tmp/profile_uuid.txt)
+          echo "Usando perfil UUID: $PROFILE_UUID"
 
-          # Cria ExportOptions com UUID direto
-          cat > /tmp/ExportOptions.plist << EXPORTEOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>method</key>
-  <string>app-store</string>
-  <key>teamID</key>
-  <string>3QYS8AW46V</string>
-  <key>signingStyle</key>
-  <string>manual</string>
-  <key>signingCertificate</key>
-  <string>Apple Distribution</string>
-  <key>provisioningProfiles</key>
-  <dict>
-    <key>br.com.fabricadeaplicativos.app2203439</key>
-    <string>$PROFILE_UUID</string>
-  </dict>
-</dict>
-</plist>
-EXPORTEOF
-
-          cat /tmp/ExportOptions.plist
-
-          # Gym só faz o archive
           ARCHIVE_PATH=/tmp/GuiaVip.xcarchive
+
           fastlane gym \
             --workspace "Guia Vip/src/Guia Vip.xcworkspace" \
             --scheme "Guia Vip" \
@@ -211,16 +167,42 @@ EXPORTEOF
             --skip_package_ipa true \
             --archive_path "$ARCHIVE_PATH" \
             --clean true \
-            --xcargs "COMPILER_INDEX_STORE_ENABLE=NO OTHER_CODE_SIGN_FLAGS='--keychain $KEYCHAIN_PATH'"
+            --xcargs "COMPILER_INDEX_STORE_ENABLE=NO"
 
-          # Export manual com UUID no plist
+          python3 -c "
+          import subprocess, os
+          uuid = open('/tmp/profile_uuid.txt').read().strip()
+          plist = f'''<?xml version=\"1.0\" encoding=\"UTF-8\"?>
+          <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
+          <plist version=\"1.0\">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>3QYS8AW46V</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>br.com.fabricadeaplicativos.app2203439</key>
+              <string>{uuid}</string>
+            </dict>
+          </dict>
+          </plist>'''
+          with open('/tmp/ExportOptions.plist', 'w') as f:
+              f.write(plist)
+          print('ExportOptions.plist criado com UUID:', uuid)
+          "
+
+          cat /tmp/ExportOptions.plist
+
           mkdir -p build/ios/ipa
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
           xcodebuild -exportArchive \
             -archivePath "$ARCHIVE_PATH" \
             -exportOptionsPlist /tmp/ExportOptions.plist \
-            -exportPath build/ios/ipa \
-            OTHER_CODE_SIGN_FLAGS="--keychain $KEYCHAIN_PATH"
+            -exportPath build/ios/ipa
 
           ls -la build/ios/ipa/
 
