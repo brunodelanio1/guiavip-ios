@@ -20,6 +20,12 @@ jobs:
           key: pods-${{ hashFiles('Guia Vip/src/Podfile.lock') }}
           restore-keys: pods-
 
+      - name: Selecionar Xcode 26
+        run: |
+          ls /Applications/ | grep Xcode
+          sudo xcode-select -s /Applications/Xcode_26.app
+          xcodebuild -version
+
       - name: Install CocoaPods
         run: |
           cd "Guia Vip/src"
