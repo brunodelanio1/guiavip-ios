@@ -142,11 +142,11 @@ jobs:
 
       - name: Incrementar Build Number
         run: |
-          PLIST="Guia Vip/src/Guia Vip/Info.plist"
-          CURRENT=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$PLIST")
+          PLIST=$(find "Guia Vip/src" -name "Info.plist" | grep -v Pods | head -1)
+          echo "Info.plist encontrado: $PLIST"
+          CURRENT=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$PLIST" 2>/dev/null || echo "21")
           NEW=$((CURRENT + 1))
-          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $NEW" "$PLIST"
-          /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $NEW.0.0" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $NEW" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add CFBundleVersion string $NEW" "$PLIST"
           echo "Build number: $CURRENT -> $NEW"
 
       - name: Remover NSUserTrackingUsageDescription
