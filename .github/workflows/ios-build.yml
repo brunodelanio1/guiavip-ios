@@ -140,6 +140,24 @@ jobs:
           pip3 install codemagic-cli-tools --break-system-packages --quiet
           xcode-project use-profiles
 
+      - name: Remover NSUserTrackingUsageDescription
+        run: |
+          python3 -c "
+          import plistlib, glob
+          plists = glob.glob('Guia Vip/src/**/*.plist', recursive=True)
+          for path in plists:
+              try:
+                  with open(path, 'rb') as f:
+                      plist = plistlib.load(f)
+                  if 'NSUserTrackingUsageDescription' in plist:
+                      del plist['NSUserTrackingUsageDescription']
+                      with open(path, 'wb') as f:
+                          plistlib.dump(plist, f)
+                      print(f'Removido de: {path}')
+              except:
+                  pass
+          "
+
       - name: Fix Pods code signing
         run: |
           python3 -c "
