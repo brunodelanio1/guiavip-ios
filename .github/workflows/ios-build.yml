@@ -142,12 +142,9 @@ jobs:
 
       - name: Incrementar Build Number
         run: |
-          PLIST=$(find "Guia Vip/src" -name "Info.plist" | grep -v Pods | head -1)
-          echo "Info.plist encontrado: $PLIST"
-          CURRENT=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$PLIST" 2>/dev/null || echo "21")
-          NEW=$((CURRENT + 1))
-          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $NEW" "$PLIST" 2>/dev/null || /usr/libexec/PlistBuddy -c "Add CFBundleVersion string $NEW" "$PLIST"
-          echo "Build number: $CURRENT -> $NEW"
+          BUILD_NUM=$GITHUB_RUN_NUMBER
+          echo "BUILD_NUMBER=$BUILD_NUM" >> $GITHUB_ENV
+          echo "Usando build number: $BUILD_NUM"
 
       - name: Remover NSUserTrackingUsageDescription
         run: |
@@ -200,7 +197,7 @@ jobs:
             --skip_package_ipa true \
             --archive_path "$ARCHIVE_PATH" \
             --clean true \
-            --xcargs "COMPILER_INDEX_STORE_ENABLE=NO"
+            --xcargs "COMPILER_INDEX_STORE_ENABLE=NO CURRENT_PROJECT_VERSION=$BUILD_NUMBER MARKETING_VERSION=22.0.$BUILD_NUMBER"
 
           python3 -c "
           import subprocess, os
