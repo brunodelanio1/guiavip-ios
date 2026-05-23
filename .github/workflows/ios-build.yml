@@ -142,22 +142,12 @@ jobs:
 
       - name: Incrementar Build Number
         run: |
-          python3 -c "
-          import plistlib, glob
-          plists = glob.glob('Guia Vip/src/**/*.plist', recursive=True)
-          for path in plists:
-              try:
-                  with open(path, 'rb') as f:
-                      plist = plistlib.load(f)
-                  if 'CFBundleVersion' in plist:
-                      current = int(plist['CFBundleVersion'])
-                      plist['CFBundleVersion'] = str(current + 1)
-                      with open(path, 'wb') as f:
-                          plistlib.dump(plist, f)
-                      print(f'Build number: {current} -> {current + 1} em {path}')
-              except:
-                  pass
-          "
+          PLIST="Guia Vip/src/Guia Vip/Info.plist"
+          CURRENT=$(/usr/libexec/PlistBuddy -c "Print CFBundleVersion" "$PLIST")
+          NEW=$((CURRENT + 1))
+          /usr/libexec/PlistBuddy -c "Set CFBundleVersion $NEW" "$PLIST"
+          /usr/libexec/PlistBuddy -c "Set CFBundleShortVersionString $NEW.0.0" "$PLIST"
+          echo "Build number: $CURRENT -> $NEW"
 
       - name: Remover NSUserTrackingUsageDescription
         run: |
