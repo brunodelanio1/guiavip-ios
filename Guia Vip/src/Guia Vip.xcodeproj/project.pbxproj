@@ -372,7 +372,7 @@
 				CODE_SIGN_ENTITLEMENTS = "Guia Vip/Entitlements/Entitlements.plist";
 				CODE_SIGN_IDENTITY = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 23;
 				DEVELOPMENT_TEAM = "3QYS8AW46V";
 				INFOPLIST_FILE = "Guia Vip/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -380,8 +380,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 22.0.0;
-				CURRENT_PROJECT_VERSION = 22;
+				MARKETING_VERSION = 23.0.0;
+				CURRENT_PROJECT_VERSION = 23;
 				PRODUCT_BUNDLE_IDENTIFIER = "br.com.fabricadeaplicativos.app2203439";
 				PRODUCT_NAME = "GuiaVip";
 				PROVISIONING_PROFILE_SPECIFIER = "Guia VIP App Store";
@@ -400,7 +400,7 @@
 				CLANG_ENABLE_MODULES = NO;
 				CODE_SIGN_ENTITLEMENTS = "Guia Vip/Entitlements/Entitlements.plist";
 				CODE_SIGN_STYLE = Manual;
-				CURRENT_PROJECT_VERSION = 22;
+				CURRENT_PROJECT_VERSION = 23;
 				DEVELOPMENT_TEAM = "3QYS8AW46V";
 				INFOPLIST_FILE = "Guia Vip/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
@@ -408,8 +408,8 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 22.0.0;
-				CURRENT_PROJECT_VERSION = 22;
+				MARKETING_VERSION = 23.0.0;
+				CURRENT_PROJECT_VERSION = 23;
 				PRODUCT_BUNDLE_IDENTIFIER = "br.com.fabricadeaplicativos.app2203439";
 				PRODUCT_NAME = "GuiaVip";
 				SUPPORTS_MACCATALYST = YES;
