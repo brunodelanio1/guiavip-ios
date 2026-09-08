@@ -2,12 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>Capture Audio by user request</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Track current location by user request</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Capture Video by user request</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -24,6 +18,7 @@
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
 	<string>$(MARKETING_VERSION)</string>
+
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -35,17 +30,22 @@
 			<array />
 		</dict>
 	</array>
+
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -65,21 +65,27 @@
 			</array>
 		</dict>
 	</dict>
+
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>processing</string>
 		<string>remote-notification</string>
 	</array>
+
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
+
 	<key>UIRequiredDeviceCapabilities</key>
 	<array>
 		<string>armv7</string>
 	</array>
+
 	<key>UIStatusBarStyle</key>
 	<string>UIStatusBarStyleDefault</string>
+
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -87,6 +93,7 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
+
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -94,18 +101,21 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+
 	<key>WKAppBoundDomains</key>
 	<array>
 		<string>guiavip.pages.dev</string>
 	</array>
+
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	</array>
-	
 </dict>
 </plist>
