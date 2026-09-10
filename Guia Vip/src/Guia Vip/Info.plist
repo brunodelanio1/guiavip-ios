@@ -107,7 +107,7 @@
 
 	<key>WKAppBoundDomains</key>
 	<array>
-		<string>guiavip.pages.dev</string>
+		<string>guiavip.net</string>
 	</array>
 
 	<key>ITSAppUsesNonExemptEncryption</key>
